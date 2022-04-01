@@ -590,6 +590,7 @@
 
 - (void)createEventWithOptions:(CDVInvokedUrlCommand*)command {
   NSDictionary* options = [command.arguments objectAtIndex:0];
+  NSLog(@"Khadija & Rashmi");
 
   NSString* title      = [options objectForKey:@"title"];
   NSString* location   = [options objectForKey:@"location"];
