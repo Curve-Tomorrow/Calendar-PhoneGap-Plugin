@@ -41,6 +41,7 @@ public class Calendar extends CordovaPlugin {
 
   private static final String ACTION_OPEN_CALENDAR = "openCalendar";
   private static final String ACTION_CREATE_EVENT_WITH_OPTIONS = "createEventWithOptions";
+  private static final String ACTION_MODIFY_EVENT_WITH_OPTIONS = "modifyEventWithOptions";
   private static final String ACTION_CREATE_EVENT_INTERACTIVELY = "createEventInteractively";
   private static final String ACTION_DELETE_EVENT = "deleteEvent";
   private static final String ACTION_DELETE_EVENT_BY_ID = "deleteEventById";
@@ -90,6 +91,9 @@ public class Calendar extends CordovaPlugin {
       } else {
         createEvent(args);
       }
+      return true;
+    } else if (ACTION_MODIFY_EVENT_WITH_OPTIONS.equals(action)) {
+      modifyEvent(args);
       return true;
     } else if (ACTION_CREATE_EVENT_INTERACTIVELY.equals(action)) {
       createEventInteractively(args);
@@ -583,6 +587,53 @@ public class Calendar extends CordovaPlugin {
             } else {
               callback.error("Fail to create an event");
             }
+          } catch (JSONException e) {
+            e.printStackTrace();
+          }
+        }
+      });
+    } catch (Exception e) {
+      Log.e(LOG_TAG, "Error creating event. Invoking error callback.", e);
+      callback.error(e.getMessage());
+    }
+  }
+
+    private void modifyEvent(JSONArray args) {
+    // note that if the dev didn't call requestWritePermission before calling this method and calendarPermissionGranted returns false,
+    // the app will ask permission and this method needs to be invoked again (done for backward compat).
+    if (!calendarPermissionGranted(Manifest.permission.WRITE_CALENDAR, Manifest.permission.READ_CALENDAR)) {
+      requestReadWritePermission(PERMISSION_REQCODE_CREATE_EVENT);
+      return;
+    }
+
+    try {
+      final JSONObject argObject = args.getJSONObject(0);
+      final JSONObject argOptionsObject = argObject.getJSONObject("options");
+
+      cordova.getThreadPool().execute(new Runnable() {
+        @Override
+        public void run() {
+          try {
+            getCalendarAccessor().modifyEvent(
+                    getPossibleNullString("id", argOptionsObject),
+                    getPossibleNullString("newTitle", argObject),
+                    argObject.getLong("newStartTime"),
+                    argObject.getLong("newEndTime"),
+                    getPossibleNullString("newNotes", argObject),
+                    getPossibleNullString("newLocation", argObject),
+                    argOptionsObject.optLong("firstReminderMinutes", -1),
+                    argOptionsObject.optLong("secondReminderMinutes", -1),
+                    getPossibleNullString("recurrence", argOptionsObject),
+                    argOptionsObject.optInt("recurrenceInterval", -1),
+                    getPossibleNullString("recurrenceWeekstart", argOptionsObject),
+                    getPossibleNullString("recurrenceByDay", argOptionsObject),
+                    getPossibleNullString("recurrenceByMonthDay", argOptionsObject),
+                    argOptionsObject.optLong("recurrenceEndTime", -1),
+                    argOptionsObject.optLong("recurrenceCount", -1),
+                    getPossibleNullString("allday", argOptionsObject),
+                    argOptionsObject.optInt("calendarId", 1),
+                    getPossibleNullString("url", argOptionsObject));
+            callback.success();
           } catch (JSONException e) {
             e.printStackTrace();
           }
