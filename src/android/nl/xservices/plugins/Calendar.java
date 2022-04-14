@@ -49,7 +49,8 @@ public class Calendar extends CordovaPlugin {
   private static final String ACTION_LIST_CALENDARS = "listCalendars";
   private static final String ACTION_CREATE_CALENDAR = "createCalendar";
   private static final String ACTION_DELETE_CALENDAR = "deleteCalendar";
-  private static final String FIND_ALL_EVENTS_IN_NAMED_CALENDAR = "findAllEventsInNamedCalendar";
+  private static final String ACTION_FIND_ALL_EVENTS_IN_NAMED_CALENDAR = "findAllEventsInNamedCalendar";
+  private static final String ACTION_MODIFY_EVENT_WITH_OPTIONS = "modifyEventWithOptions";
 
   // write permissions
   private static final int PERMISSION_REQCODE_CREATE_CALENDAR = 100;
@@ -134,8 +135,11 @@ public class Calendar extends CordovaPlugin {
     } else if (REQUEST_READWRITE_PERMISSION.equals(action)) {
       requestReadWritePermission(0);
       return true;
-    } else if (FIND_ALL_EVENTS_IN_NAMED_CALENDAR.equals(action)) {
+    } else if (ACTION_FIND_ALL_EVENTS_IN_NAMED_CALENDAR.equals(action)) {
       findAllEventsInNamedCalendar(args);
+      return true;
+    } else if (ACTION_MODIFY_EVENT_WITH_OPTIONS.equals(action)) {
+      modifyEvent(args);
       return true;
     }
     return false;
@@ -594,6 +598,58 @@ public class Calendar extends CordovaPlugin {
       });
     } catch (Exception e) {
       Log.e(LOG_TAG, "Error creating event. Invoking error callback.", e);
+      callback.error(e.getMessage());
+    }
+  }
+
+  private void modifyEvent(JSONArray args) {
+    // note that if the dev didn't call requestWritePermission before calling this method and calendarPermissionGranted returns false,
+    // the app will ask permission and this method needs to be invoked again (done for backward compat).
+    if (!calendarPermissionGranted(Manifest.permission.WRITE_CALENDAR, Manifest.permission.READ_CALENDAR)) {
+      requestReadWritePermission(PERMISSION_REQCODE_CREATE_EVENT);
+      return;
+    }
+
+    try {
+      final JSONObject argObject = args.getJSONObject(0);
+      final JSONObject argOptionsObject = argObject.getJSONObject("options");
+      final JSONObject argNewOptionsObject = argObject.getJSONObject("newOptions");
+
+      cordova.getThreadPool().execute(new Runnable() {
+        @Override
+        public void run() {
+          try {
+            final Integer updatedRows = getCalendarAccessor().modifyEvent(
+              getPossibleNullString("newTitle", argObject),
+              getPossibleNullString("newLocation", argObject),
+              getPossibleNullString("newNotes", argObject),
+              argObject.getLong("newStartTime"),
+              argObject.getLong("newEndTime"),
+              getPossibleNullString("id", argOptionsObject),
+              argNewOptionsObject.optLong("newFirstReminderMinutes", -1),
+              argNewOptionsObject.optLong("newSecondReminderMinutes", -1),
+              getPossibleNullString("newRecurrence", argNewOptionsObject),
+              argNewOptionsObject.optInt("newRecurrenceInterval", -1),
+              getPossibleNullString("newRecurrenceWeekstart", argNewOptionsObject),
+              getPossibleNullString("newRecurrenceByDay", argNewOptionsObject),
+              getPossibleNullString("newRecurrenceByMonthDay", argNewOptionsObject),
+              argNewOptionsObject.optLong("newRecurrenceEndTime", -1),
+              argNewOptionsObject.optLong("newRecurrenceCount", -1),
+              getPossibleNullString("newAllday", argNewOptionsObject),
+              argNewOptionsObject.optInt("newCalendarId", -1),
+              getPossibleNullString("newUrl", argNewOptionsObject));
+            if (updatedRows > 0) {
+              callback.success(updatedRows);
+            } else {
+              callback.error("Fail to update an event");
+            }
+          } catch (JSONException e) {
+            e.printStackTrace();
+          }
+        }
+      });
+    } catch (Exception e) {
+      Log.e(LOG_TAG, "Error updating event. Invoking error callback.", e);
       callback.error(e.getMessage());
     }
   }
