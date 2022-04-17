@@ -669,19 +669,19 @@ public class Calendar extends CordovaPlugin {
 
     try {
       final JSONObject jsonFilter = args.getJSONObject(0);
-      String calendarName = jsonFilter.optString("calendarName");
+      String calendarId = jsonFilter.optString("calendarName");
       ContentResolver contentResolver = Calendar.this.cordova.getActivity().getContentResolver();
       Uri eventUri = Uri.parse("content://com.android.calendar/events");
-      String[] projection = new String[]{"title", "_id", "rrule", "description", "rdate", "dtstart", "dtend", "eventLocation", "allDay"};
+      String[] projection = new String[]{"title", "_id", "calendar_id", "rrule", "description", "rdate", "dtstart", "dtend", "eventLocation", "allDay"};
       String selection = "((" + CalendarContract.Calendars.NAME + " = ?))";
-      String[] selectionArgs = new String[]{calendarName};
+      String[] selectionArgs = new String[]{calendarId};
 
       //actual query
       Cursor cursor = contentResolver.query(
         eventUri,
         projection,
-        selection,
-        selectionArgs,
+        null,
+        null,
         null);
 
       int i = 0;
@@ -689,20 +689,23 @@ public class Calendar extends CordovaPlugin {
 
       if (cursor != null) {
         while (cursor.moveToNext()) {
-          try {
-            result.put(
-              i++,
-              new JSONObject()
-                .put("startDate", cursor.getLong(cursor.getColumnIndex("dtstart")))
-                .put("endDate", cursor.getLong(cursor.getColumnIndex("dtend")))
-                .put("id", cursor.getString(cursor.getColumnIndex("_id")))
-                .put("location", cursor.getString(cursor.getColumnIndex("eventLocation")) != null ? cursor.getString(cursor.getColumnIndex("eventLocation")) : "")
-                .put("title", cursor.getString(cursor.getColumnIndex("title")))
-                .put("message", cursor.getString(cursor.getColumnIndex("description")))
-                .put("rrule", cursor.getString(cursor.getColumnIndex("rrule")))
-            );
-          } catch (JSONException e) {
-            e.printStackTrace();
+          String calId = cursor.getString(cursor.getColumnIndex("calendar_id"));
+          if (calendarId.equals(calId)) {
+            try {
+              result.put(
+                i++,
+                new JSONObject()
+                  .put("startDate", cursor.getLong(cursor.getColumnIndex("dtstart")))
+                  .put("endDate", cursor.getLong(cursor.getColumnIndex("dtend")))
+                  .put("id", cursor.getString(cursor.getColumnIndex("_id")))
+                  .put("location", cursor.getString(cursor.getColumnIndex("eventLocation")) != null ? cursor.getString(cursor.getColumnIndex("eventLocation")) : "")
+                  .put("title", cursor.getString(cursor.getColumnIndex("title")))
+                  .put("message", cursor.getString(cursor.getColumnIndex("description")))
+                  .put("rrule", cursor.getString(cursor.getColumnIndex("rrule")))
+              );
+            } catch (JSONException e) {
+              e.printStackTrace();
+            }
           }
         }
         cursor.close();
