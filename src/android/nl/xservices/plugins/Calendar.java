@@ -561,7 +561,7 @@ public class Calendar extends CordovaPlugin {
 
     try {
       final JSONObject argObject = args.getJSONObject(0);
-      final JSONObject argOptionsObject = argObject.getJSONObject("options");
+      final JSONObject argOptionsObject = argObject.getJSONObject("calOptions");
 
       cordova.getThreadPool().execute(new Runnable() {
         @Override
