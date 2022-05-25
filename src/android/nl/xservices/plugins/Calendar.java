@@ -695,6 +695,7 @@ public class Calendar extends CordovaPlugin {
               result.put(
                 i++,
                 new JSONObject()
+                  .put("calendar", calId)
                   .put("startDate", cursor.getLong(cursor.getColumnIndex("dtstart")))
                   .put("endDate", cursor.getLong(cursor.getColumnIndex("dtend")))
                   .put("id", cursor.getString(cursor.getColumnIndex("_id")))
