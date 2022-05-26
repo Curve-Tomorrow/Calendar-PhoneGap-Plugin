@@ -98,6 +98,26 @@
   return EKRecurrenceFrequencyDaily;
 }
 
+- (EKWeekday) toEKWeekday:(NSString*) recurrence {
+  if ([recurrence isEqualToString:@"1"]) {
+    return EKWeekdayMonday;
+  } else if ([recurrence isEqualToString:@"2"]) {
+    return EKWeekdayTuesday;
+  } else if ([recurrence isEqualToString:@"3"]) {
+    return EKWeekdayWednesday;
+  } else if ([recurrence isEqualToString:@"4"]) {
+    return EKWeekdayThursday;
+  } else if ([recurrence isEqualToString:@"5"]) {
+    return EKWeekdayFriday;
+  } else if ([recurrence isEqualToString:@"6"]) {
+    return EKWeekdaySaturday;
+  } else if ([recurrence isEqualToString:@"7"]) {
+    return EKWeekdaySunday;
+  }
+  // default to sunday, so invoke this method only when recurrence is set
+  return EKWeekdaySunday;
+}
+
 - (void) modifyEventWithOptions:(CDVInvokedUrlCommand*)command {
   NSDictionary* options = [command.arguments objectAtIndex:0];
   NSString* title      = [options objectForKey:@"title"];
@@ -440,6 +460,65 @@
           break;
         }
 
+        if (rule.daysOfTheWeek != nil) {
+            NSMutableArray * daysOfTheWeek = [[NSMutableArray alloc] init];
+            for (EKRecurrenceDayOfWeek * item in rule.daysOfTheWeek) {
+                
+                NSMutableDictionary *dayofweek = [[NSMutableDictionary alloc] init];
+                
+                // objectAtIndex starts at 0, but 'item.dayOfTheWeek' starts at 1
+                NSString *valOfDayOfWeek = [[NSArray arrayWithObjects:@"Unknown", @"Sunday", @"Monday", @"Tuesday", @"Wednesday", @"Thursday", @"Friday", @"Saturday", nil] objectAtIndex:item.dayOfTheWeek];
+                [dayofweek setObject:valOfDayOfWeek forKey:@"dayOfTheWeek"];
+                
+                NSNumber *valOfWeekNumber = [NSNumber numberWithInteger:item.weekNumber];
+                [dayofweek setObject:valOfWeekNumber forKey:@"weekNumber"];
+                
+                [daysOfTheWeek addObject:dayofweek];
+                
+            }
+            [rrule setObject:daysOfTheWeek forKey:@"daysOfTheWeek"];
+        }
+
+        if (rule.daysOfTheMonth != nil) {
+            NSMutableArray * daysOfTheMonth = [[NSMutableArray alloc] init];
+            for (NSNumber * item in rule.daysOfTheMonth) {
+                [daysOfTheMonth addObject:item];
+            }
+            [rrule setObject:daysOfTheMonth forKey:@"daysOfTheMonth"];
+        }
+
+        if (rule.daysOfTheYear != nil) {
+            NSMutableArray * daysOfTheYear = [[NSMutableArray alloc] init];
+            for (NSNumber * item in rule.daysOfTheYear) {
+                [daysOfTheYear addObject:item];
+            }
+            [rrule setObject:daysOfTheYear forKey:@"daysOfTheYear"];
+        }
+        
+        if (rule.weeksOfTheYear != nil) {
+            NSMutableArray * weeksOfTheYear = [[NSMutableArray alloc] init];
+            for (NSNumber * item in rule.weeksOfTheYear) {
+                [weeksOfTheYear addObject:item];
+            }
+            [rrule setObject:weeksOfTheYear forKey:@"weeksOfTheYear"];
+        }
+
+        if (rule.monthsOfTheYear != nil) {
+            NSMutableArray * monthsOfTheYear = [[NSMutableArray alloc] init];
+            for (NSNumber * item in rule.monthsOfTheYear) {
+                [monthsOfTheYear addObject:item];
+            }
+            [rrule setObject:monthsOfTheYear forKey:@"monthsOfTheYear"];
+        }
+
+        if (rule.setPositions != nil) {
+            NSMutableArray * setPositions = [[NSMutableArray alloc] init];
+            for (NSNumber * item in rule.setPositions) {
+                [setPositions addObject:item];
+            }
+            [rrule setObject:setPositions forKey:@"setPositions"];
+        }
+
         NSNumber *interval = [NSNumber numberWithInteger: rule.interval];
         [rrule setObject:interval forKey:@"interval"];
 
@@ -546,6 +625,7 @@
   NSNumber* recurrenceIntervalAmount = [calOptions objectForKey:@"recurrenceInterval"];
   NSString* calendarName = [calOptions objectForKey:@"calendarName"];
   NSString* url = [calOptions objectForKey:@"url"];
+  NSArray* daysOfTheWeek = [calOptions objectForKey:@"daysOfTheWeek"];
 
   [self.commandDelegate runInBackground: ^{
     EKEvent *myEvent = [EKEvent eventWithEventStore: self.eventStore];
@@ -610,13 +690,29 @@
     if (secondReminderMinutes != (id)[NSNull null]) {
       EKAlarm *reminder = [EKAlarm alarmWithRelativeOffset:-1*secondReminderMinutes.intValue*60];
       [myEvent addAlarm:reminder];
-    }
+    }     
 
     if (recurrence != (id)[NSNull null]) {
+        NSMutableArray *daysOfTheWeekArray = [NSMutableArray array];
+
+        if (daysOfTheWeek != nil) {
+
+          for (NSString* dayOfTheWeek in daysOfTheWeek) {
+            EKRecurrenceDayOfWeek *weekDay = [[EKRecurrenceDayOfWeek alloc] initWithDayOfTheWeek:[self toEKWeekday:dayOfTheWeek] weekNumber:0];
+            [daysOfTheWeekArray addObject:weekDay];
+          }
+          
+        }
       EKRecurrenceRule *rule = [[EKRecurrenceRule alloc] initRecurrenceWithFrequency: [self toEKRecurrenceFrequency:recurrence]
                                                                             interval: recurrenceIntervalAmount.integerValue
-                                                                                 end: nil];
-      if (recurrenceEndTime != nil) {
+                                                                       daysOfTheWeek: daysOfTheWeekArray
+                                                                      daysOfTheMonth: nil
+                                                                     monthsOfTheYear: nil
+                                                                      weeksOfTheYear: nil
+                                                                       daysOfTheYear: nil
+                                                                        setPositions: nil
+                                                                                 end: nil];        
+        if (recurrenceEndTime != nil) {
         NSTimeInterval _recurrenceEndTimeInterval = [recurrenceEndTime doubleValue] / 1000; // strip millis
         NSDate *myRecurrenceEndDate = [NSDate dateWithTimeIntervalSince1970:_recurrenceEndTimeInterval];
         EKRecurrenceEnd *end = [EKRecurrenceEnd recurrenceEndWithEndDate:myRecurrenceEndDate];
