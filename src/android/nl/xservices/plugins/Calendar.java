@@ -49,6 +49,8 @@ public class Calendar extends CordovaPlugin {
   private static final String ACTION_LIST_CALENDARS = "listCalendars";
   private static final String ACTION_CREATE_CALENDAR = "createCalendar";
   private static final String ACTION_DELETE_CALENDAR = "deleteCalendar";
+  private static final String ACTION_FIND_ALL_EVENTS_IN_NAMED_CALENDAR = "findAllEventsInNamedCalendar";
+  private static final String ACTION_MODIFY_EVENT_WITH_OPTIONS = "modifyEventWithOptions";
 
   // write permissions
   private static final int PERMISSION_REQCODE_CREATE_CALENDAR = 100;
@@ -132,6 +134,12 @@ public class Calendar extends CordovaPlugin {
       return true;
     } else if (REQUEST_READWRITE_PERMISSION.equals(action)) {
       requestReadWritePermission(0);
+      return true;
+    } else if (ACTION_FIND_ALL_EVENTS_IN_NAMED_CALENDAR.equals(action)) {
+      findAllEventsInNamedCalendar(args);
+      return true;
+    } else if (ACTION_MODIFY_EVENT_WITH_OPTIONS.equals(action)) {
+      modifyEvent(args);
       return true;
     }
     return false;
@@ -594,8 +602,122 @@ public class Calendar extends CordovaPlugin {
     }
   }
 
+  private void modifyEvent(JSONArray args) {
+    // note that if the dev didn't call requestWritePermission before calling this method and calendarPermissionGranted returns false,
+    // the app will ask permission and this method needs to be invoked again (done for backward compat).
+    if (!calendarPermissionGranted(Manifest.permission.WRITE_CALENDAR, Manifest.permission.READ_CALENDAR)) {
+      requestReadWritePermission(PERMISSION_REQCODE_CREATE_EVENT);
+      return;
+    }
+
+    try {
+      final JSONObject argObject = args.getJSONObject(0);
+      final JSONObject argOptionsObject = argObject.getJSONObject("options");
+      final JSONObject argNewOptionsObject = argObject.getJSONObject("newOptions");
+
+      cordova.getThreadPool().execute(new Runnable() {
+        @Override
+        public void run() {
+          try {
+            final Integer updatedRows = getCalendarAccessor().modifyEvent(
+              getPossibleNullString("newTitle", argObject),
+              getPossibleNullString("newLocation", argObject),
+              getPossibleNullString("newNotes", argObject),
+              argObject.getLong("newStartTime"),
+              argObject.getLong("newEndTime"),
+              getPossibleNullString("id", argOptionsObject),
+              argNewOptionsObject.optLong("newFirstReminderMinutes", -1),
+              argNewOptionsObject.optLong("newSecondReminderMinutes", -1),
+              getPossibleNullString("newRecurrence", argNewOptionsObject),
+              argNewOptionsObject.optInt("newRecurrenceInterval", -1),
+              getPossibleNullString("newRecurrenceWeekstart", argNewOptionsObject),
+              getPossibleNullString("newRecurrenceByDay", argNewOptionsObject),
+              getPossibleNullString("newRecurrenceByMonthDay", argNewOptionsObject),
+              argNewOptionsObject.optLong("newRecurrenceEndTime", -1),
+              argNewOptionsObject.optLong("newRecurrenceCount", -1),
+              getPossibleNullString("newAllday", argNewOptionsObject),
+              argNewOptionsObject.optInt("newCalendarId", -1),
+              getPossibleNullString("newUrl", argNewOptionsObject));
+            if (updatedRows > 0) {
+              callback.success(updatedRows);
+            } else {
+              callback.error("Fail to update an event");
+            }
+          } catch (JSONException e) {
+            e.printStackTrace();
+          }
+        }
+      });
+    } catch (Exception e) {
+      Log.e(LOG_TAG, "Error updating event. Invoking error callback.", e);
+      callback.error(e.getMessage());
+    }
+  }
+
   private static String getPossibleNullString(String param, JSONObject from) {
     return from.isNull(param) || "null".equals(from.optString(param)) ? null : from.optString(param);
+  }
+
+
+  private void findAllEventsInNamedCalendar(JSONArray args) {
+    // note that if the dev didn't call requestReadPermission before calling this method and calendarPermissionGranted returns false,
+    // the app will ask permission and this method needs to be invoked again (done for backward compat).
+    if (!calendarPermissionGranted(Manifest.permission.READ_CALENDAR)) {
+      requestReadPermission(PERMISSION_REQCODE_LIST_EVENTS_IN_RANGE);
+      return;
+    }
+
+    try {
+      final JSONObject jsonFilter = args.getJSONObject(0);
+      String calendarId = jsonFilter.optString("calendarName");
+      ContentResolver contentResolver = Calendar.this.cordova.getActivity().getContentResolver();
+      Uri eventUri = Uri.parse("content://com.android.calendar/events");
+      String[] projection = new String[]{"title", "_id", "calendar_id", "rrule", "description", "rdate", "dtstart", "dtend", "eventLocation", "allDay"};
+      String selection = "((" + CalendarContract.Calendars.NAME + " = ?))";
+      String[] selectionArgs = new String[]{calendarId};
+
+      //actual query
+      Cursor cursor = contentResolver.query(
+        eventUri,
+        projection,
+        null,
+        null,
+        null);
+
+      int i = 0;
+      JSONArray result = new JSONArray();
+
+      if (cursor != null) {
+        while (cursor.moveToNext()) {
+          String calId = cursor.getString(cursor.getColumnIndex("calendar_id"));
+          if (calendarId.equals(calId)) {
+            try {
+              result.put(
+                i++,
+                new JSONObject()
+                  .put("calendar", calId)
+                  .put("startDate", cursor.getLong(cursor.getColumnIndex("dtstart")))
+                  .put("endDate", cursor.getLong(cursor.getColumnIndex("dtend")))
+                  .put("id", cursor.getString(cursor.getColumnIndex("_id")))
+                  .put("location", cursor.getString(cursor.getColumnIndex("eventLocation")) != null ? cursor.getString(cursor.getColumnIndex("eventLocation")) : "")
+                  .put("title", cursor.getString(cursor.getColumnIndex("title")))
+                  .put("message", cursor.getString(cursor.getColumnIndex("description")))
+                  .put("rrule", cursor.getString(cursor.getColumnIndex("rrule")))
+              );
+            } catch (JSONException e) {
+              e.printStackTrace();
+            }
+          }
+        }
+        cursor.close();
+      }
+
+      callback.sendPluginResult(new PluginResult(PluginResult.Status.OK, result));
+
+    } catch (JSONException e) {
+      System.err.println("Exception: " + e.getMessage());
+      callback.error(e.getMessage());
+    }
   }
 
   private void listEventsInRange(JSONArray args) {
