@@ -929,9 +929,11 @@
   if (calendar == nil) {
     pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"Could not find calendar"];
   } else {
-    NSDate* endDate =  [NSDate dateWithTimeIntervalSinceNow:[[NSDate distantFuture] timeIntervalSinceReferenceDate]];
+    NSDate *currentDate = [NSDate date];
+    NSDate *startDate = [[NSCalendar currentCalendar] dateByAddingUnit:NSCalendarUnitDay value:-14 toDate:currentDate options:0];
+    NSDate *endDate =  [[NSCalendar currentCalendar] dateByAddingUnit:NSCalendarUnitDay value:+14 toDate:currentDate options:0];
     NSArray *calendarArray = [NSArray arrayWithObject:calendar];
-    NSPredicate *fetchCalendarEvents = [eventStore predicateForEventsWithStartDate:[NSDate date] endDate:endDate calendars:calendarArray];
+    NSPredicate *fetchCalendarEvents = [eventStore predicateForEventsWithStartDate:startDate endDate:endDate calendars:calendarArray];
     NSArray *matchingEvents = [eventStore eventsMatchingPredicate:fetchCalendarEvents];
     NSMutableArray * eventsDataArray = [self eventsToDataArray:matchingEvents];
 
