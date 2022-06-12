@@ -671,8 +671,27 @@ public class Calendar extends CordovaPlugin {
       final JSONObject jsonFilter = args.getJSONObject(0);
       String calendarId = jsonFilter.optString("calendarName");
       ContentResolver contentResolver = Calendar.this.cordova.getActivity().getContentResolver();
-      Uri eventUri = Uri.parse("content://com.android.calendar/events");
-      String[] projection = new String[]{"title", "_id", "calendar_id", "rrule", "description", "rdate", "dtstart", "dtend", "eventLocation", "allDay"};
+      java.util.Calendar startDateCal = java.util.Calendar.getInstance();
+      startDateCal.add(java.util.Calendar.DAY_OF_YEAR, -14);
+      long startDate = startDateCal.getTimeInMillis();
+      java.util.Calendar endDateCal = java.util.Calendar.getInstance();
+      endDateCal.add(java.util.Calendar.DAY_OF_YEAR, +14);
+      long endDate = endDateCal.getTimeInMillis();
+      Uri eventUri = Uri.parse("content://com.android.calendar/instances/when/" + String.valueOf(startDate) + "/"
+          + String.valueOf(endDate));
+      String[] projection = new String[] {
+          "calendar_id",
+          "_id",
+          "event_id",
+          "title",
+          "description",
+          "eventLocation",
+          "dtstart",
+          "dtend",
+          "rrule",
+          "begin",
+          "end"
+      };
       String selection = "((" + CalendarContract.Calendars.NAME + " = ?))";
       String[] selectionArgs = new String[]{calendarId};
 
@@ -680,9 +699,16 @@ public class Calendar extends CordovaPlugin {
       Cursor cursor = contentResolver.query(
         eventUri,
         projection,
+        "(deleted = 0 AND" +
+        "   (" +
+        // all day events are stored in UTC, others in the user's timezone
+        "     (eventTimezone  = 'UTC' AND begin >=" + (startDate + TimeZone.getDefault().getOffset(endDate)) + " AND end <=" + (endDate + TimeZone.getDefault().getOffset(endDate)) + ")" +
+        "     OR " +
+        "     (eventTimezone <> 'UTC' AND begin >=" + startDate + " AND end <=" + endDate + ")" +
+        "   )" +
+        ")",
         null,
-        null,
-        null);
+        "begin ASC");
 
       int i = 0;
       JSONArray result = new JSONArray();
@@ -692,18 +718,47 @@ public class Calendar extends CordovaPlugin {
           String calId = cursor.getString(cursor.getColumnIndex("calendar_id"));
           if (calendarId.equals(calId)) {
             try {
-              result.put(
-                i++,
-                new JSONObject()
-                  .put("calendar", calId)
-                  .put("startDate", cursor.getLong(cursor.getColumnIndex("dtstart")))
-                  .put("endDate", cursor.getLong(cursor.getColumnIndex("dtend")))
-                  .put("id", cursor.getString(cursor.getColumnIndex("_id")))
-                  .put("location", cursor.getString(cursor.getColumnIndex("eventLocation")) != null ? cursor.getString(cursor.getColumnIndex("eventLocation")) : "")
-                  .put("title", cursor.getString(cursor.getColumnIndex("title")))
-                  .put("message", cursor.getString(cursor.getColumnIndex("description")))
-                  .put("rrule", cursor.getString(cursor.getColumnIndex("rrule")))
-              );
+              JSONObject obj = new JSONObject();
+              obj.put("calendarId", calId);
+              obj.put("id", cursor.getString(cursor.getColumnIndex("_id")));
+              obj.put("eventId", cursor.getString(cursor.getColumnIndex("event_id")));
+              obj.putOpt("title", cursor.getString(cursor.getColumnIndex("title")));
+              obj.putOpt("message", cursor.getString(cursor.getColumnIndex("description")));
+              obj.putOpt("location",
+                  cursor.getString(cursor.getColumnIndex("eventLocation")) != null ?
+                  cursor.getString(cursor.getColumnIndex("eventLocation")) :
+                  "");
+              obj.put("startDate", cursor.getLong(cursor.getColumnIndex("dtstart")));
+              obj.put("endDate", cursor.getLong(cursor.getColumnIndex("dtend")));
+              String rrule = cursor.getString(cursor.getColumnIndex("rrule"));
+              if (!TextUtils.isEmpty(rrule)) {
+                  JSONObject objRecurrence = new JSONObject();
+                  String[] rrule_rules = rrule.split(";");
+                  for (String rule: rrule_rules) {
+                      String rule_type = rule.split("=")[0];
+                      if (rule_type.equals("FREQ")) {
+                          objRecurrence.putOpt("freq", rule.split("=")[1]);
+                      } else if (rule_type.equals("INTERVAL")) {
+                          objRecurrence.putOpt("interval", rule.split("=")[1]);
+                      } else if (rule_type.equals("WKST")) {
+                          objRecurrence.putOpt("wkst", rule.split("=")[1]);
+                      } else if (rule_type.equals("BYDAY")) {
+                          objRecurrence.putOpt("byday", rule.split("=")[1]);
+                      } else if (rule_type.equals("BYMONTHDAY")) {
+                          objRecurrence.putOpt("bymonthday", rule.split("=")[1]);
+                      } else if (rule_type.equals("UNTIL")) {
+                          objRecurrence.putOpt("until", rule.split("=")[1]);
+                      } else if (rule_type.equals("COUNT")) {
+                          objRecurrence.putOpt("count", rule.split("=")[1]);
+                      } else {
+                          Log.d(LOG_TAG, "Missing handler for " + rule);
+                      }
+                  }
+                  obj.put("rrule", objRecurrence);
+                  obj.put("begin", cursor.getLong(cursor.getColumnIndex("begin")));
+                  obj.put("end", cursor.getLong(cursor.getColumnIndex("end")));
+              }
+              result.put(i++, obj);
             } catch (JSONException e) {
               e.printStackTrace();
             }
