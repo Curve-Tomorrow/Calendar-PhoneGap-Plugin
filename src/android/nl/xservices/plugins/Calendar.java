@@ -12,9 +12,12 @@ import android.net.Uri;
 import android.os.Build;
 import android.provider.CalendarContract;
 import android.util.Log;
+import android.text.TextUtils;
+
 import nl.xservices.plugins.accessor.AbstractCalendarAccessor;
 import nl.xservices.plugins.accessor.CalendarProviderAccessor;
 import nl.xservices.plugins.accessor.LegacyCalendarAccessor;
+
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.CordovaPlugin;
 import org.apache.cordova.PermissionHelper;
