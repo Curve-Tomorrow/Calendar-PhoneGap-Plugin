@@ -1,4 +1,3 @@
-cordova.define("cordova-plugin-calendar.Calendar", function(require, exports, module) {
 "use strict";
 function Calendar() {
 }
@@ -302,5 +301,3 @@ Calendar.install = function () {
 };
 
 cordova.addConstructor(Calendar.install);
-
-});
