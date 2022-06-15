@@ -1,3 +1,4 @@
+cordova.define("cordova-plugin-calendar.Calendar", function(require, exports, module) {
 "use strict";
 function Calendar() {
 }
@@ -208,9 +209,10 @@ Calendar.prototype.deleteEventFromNamedCalendar = function (title, location, not
   }])
 };
 
-Calendar.prototype.deleteEventById = function (id, fromDate, successCallback, errorCallback) {
+Calendar.prototype.deleteEventById = function (id, thisAndFollowingEvents, fromDate, successCallback, errorCallback) {
   cordova.exec(successCallback, errorCallback, "Calendar", "deleteEventById", [{
     "id": id,
+    "thisAndFollowingEvents": thisAndFollowingEvents,
     "fromTime": fromDate instanceof Date ? fromDate.getTime() : null
   }]);
 };
@@ -300,3 +302,5 @@ Calendar.install = function () {
 };
 
 cordova.addConstructor(Calendar.install);
+
+});
