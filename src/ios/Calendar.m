@@ -916,7 +916,9 @@
           return;
         }
         NSArray<EKEvent*>* toDeleteSorted = [toDelete sortedArrayUsingSelector:@selector(compareStartDateWithEvent:)];
-        instance = toDeleteSorted.firstObject;
+        NSPredicate *matches = [NSPredicate predicateWithFormat:[NSString stringWithFormat:@"eventIdentifier contains[c] '%@'", firstEvent.eventIdentifier]];
+        NSArray *matchingEvents = [toDeleteSorted filteredArrayUsingPredicate:matches];
+        instance = matchingEvents.firstObject;
       } else {
         // First instance is target
         instance = firstEvent;
