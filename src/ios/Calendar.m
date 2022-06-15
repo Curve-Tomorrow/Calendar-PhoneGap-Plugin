@@ -190,6 +190,7 @@
     CDVPluginResult *pluginResult = nil;
     if (theEvent != nil) {
       NSDictionary* newCalOptions = [options objectForKey:@"newOptions"];
+      BOOL thisAndFollowingEvents = [[newCalOptions objectForKey:@"thisAndFollowingEvents"] boolValue];
       NSString* newCalendarName = [newCalOptions objectForKey:@"calendarName"];
       if (newCalendarName != (id)[NSNull null]) {
         theEvent.calendar = [self findEKCalendar:calendarName];
@@ -276,7 +277,8 @@
 
       // Now save the new details back to the store
       NSError *error = nil;
-      [self.eventStore saveEvent:theEvent span:EKSpanThisEvent error:&error];
+      [self.eventStore saveEvent:theEvent span:thisAndFollowingEvents ? EKSpanFutureEvents
+ : EKSpanThisEvent error:&error];
 
 
       // Check error code + return result
@@ -889,6 +891,7 @@
 - (void) deleteEventById:(CDVInvokedUrlCommand*)command {
   NSDictionary* options = [command.arguments objectAtIndex:0];
   NSString* ciid = [options objectForKey:@"id"];
+  BOOL thisAndFollowingEvents = [[options objectForKey:@"thisAndFollowingEvents"] boolValue];
   NSNumber* fromTime = [options objectForKey:@"fromTime"];
 
   [self.commandDelegate runInBackground: ^{
@@ -921,7 +924,8 @@
 
       // Delete
       NSError *error = nil;
-      [eventStore removeEvent:instance span:EKSpanFutureEvents error:&error];
+      [eventStore removeEvent:instance span:thisAndFollowingEvents ? EKSpanFutureEvents
+ : EKSpanThisEvent error:&error];
       if (error != nil) {
         // Fail
         [self.commandDelegate
