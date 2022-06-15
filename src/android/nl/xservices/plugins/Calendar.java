@@ -629,18 +629,18 @@ public class Calendar extends CordovaPlugin {
               argObject.getLong("newStartTime"),
               argObject.getLong("newEndTime"),
               getPossibleNullString("id", argOptionsObject),
-              argNewOptionsObject.optLong("newFirstReminderMinutes", -1),
-              argNewOptionsObject.optLong("newSecondReminderMinutes", -1),
-              getPossibleNullString("newRecurrence", argNewOptionsObject),
-              argNewOptionsObject.optInt("newRecurrenceInterval", -1),
-              getPossibleNullString("newRecurrenceWeekstart", argNewOptionsObject),
-              getPossibleNullString("newRecurrenceByDay", argNewOptionsObject),
-              getPossibleNullString("newRecurrenceByMonthDay", argNewOptionsObject),
-              argNewOptionsObject.optLong("newRecurrenceEndTime", -1),
-              argNewOptionsObject.optLong("newRecurrenceCount", -1),
-              getPossibleNullString("newAllday", argNewOptionsObject),
-              argNewOptionsObject.optInt("newCalendarId", -1),
-              getPossibleNullString("newUrl", argNewOptionsObject));
+              argNewOptionsObject.optLong("firstReminderMinutes", -1),
+              argNewOptionsObject.optLong("secondReminderMinutes", -1),
+              getPossibleNullString("recurrence", argNewOptionsObject),
+              argNewOptionsObject.optInt("recurrenceInterval", -1),
+              getPossibleNullString("recurrenceWeekstart", argNewOptionsObject),
+              getPossibleNullString("recurrenceByDay", argNewOptionsObject),
+              getPossibleNullString("recurrenceByMonthDay", argNewOptionsObject),
+              argNewOptionsObject.optLong("recurrenceEndTime", -1),
+              argNewOptionsObject.optLong("recurrenceCount", -1),
+              getPossibleNullString("allday", argNewOptionsObject),
+              argNewOptionsObject.optInt("calendarId", -1),
+              getPossibleNullString("url", argNewOptionsObject));
             if (updatedRows > 0) {
               callback.success(updatedRows);
             } else {

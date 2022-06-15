@@ -190,6 +190,7 @@
     CDVPluginResult *pluginResult = nil;
     if (theEvent != nil) {
       NSDictionary* newCalOptions = [options objectForKey:@"newOptions"];
+      BOOL thisAndFollowingEvents = [[newCalOptions objectForKey:@"thisAndFollowingEvents"] boolValue];
       NSString* newCalendarName = [newCalOptions objectForKey:@"calendarName"];
       if (newCalendarName != (id)[NSNull null]) {
         theEvent.calendar = [self findEKCalendar:calendarName];
@@ -239,9 +240,26 @@
       NSNumber* intervalAmount = [newCalOptions objectForKey:@"recurrenceInterval"];
 
       if (recurrence != (id)[NSNull null]) {
-        EKRecurrenceRule *rule = [[EKRecurrenceRule alloc] initRecurrenceWithFrequency: [self toEKRecurrenceFrequency:recurrence]
-                                                                              interval: intervalAmount.integerValue
-                                                                                   end: nil];
+        NSMutableArray *daysOfTheWeekArray = [NSMutableArray array];
+
+        NSArray* daysOfTheWeek = [newCalOptions objectForKey:@"daysOfTheWeek"];
+        if (daysOfTheWeek != nil) {
+
+          for (NSString* dayOfTheWeek in daysOfTheWeek) {
+            EKRecurrenceDayOfWeek *weekDay = [[EKRecurrenceDayOfWeek alloc] initWithDayOfTheWeek:[self toEKWeekday:dayOfTheWeek] weekNumber:0];
+            [daysOfTheWeekArray addObject:weekDay];
+          }
+
+        }
+      EKRecurrenceRule *rule = [[EKRecurrenceRule alloc] initRecurrenceWithFrequency: [self toEKRecurrenceFrequency:recurrence]
+                                                                            interval: intervalAmount.integerValue
+                                                                       daysOfTheWeek: daysOfTheWeekArray
+                                                                      daysOfTheMonth: nil
+                                                                     monthsOfTheYear: nil
+                                                                      weeksOfTheYear: nil
+                                                                       daysOfTheYear: nil
+                                                                        setPositions: nil
+                                                                                 end: nil];
         NSString* recurrenceEndTime = [newCalOptions objectForKey:@"recurrenceEndTime"];
         if (recurrenceEndTime != nil) {
           NSTimeInterval _recurrenceEndTimeInterval = [recurrenceEndTime doubleValue] / 1000; // strip millis
@@ -259,7 +277,8 @@
 
       // Now save the new details back to the store
       NSError *error = nil;
-      [self.eventStore saveEvent:theEvent span:EKSpanThisEvent error:&error];
+      [self.eventStore saveEvent:theEvent span:thisAndFollowingEvents ? EKSpanFutureEvents
+ : EKSpanThisEvent error:&error];
 
 
       // Check error code + return result
@@ -463,18 +482,18 @@
         if (rule.daysOfTheWeek != nil) {
             NSMutableArray * daysOfTheWeek = [[NSMutableArray alloc] init];
             for (EKRecurrenceDayOfWeek * item in rule.daysOfTheWeek) {
-                
+
                 NSMutableDictionary *dayofweek = [[NSMutableDictionary alloc] init];
-                
+
                 // objectAtIndex starts at 0, but 'item.dayOfTheWeek' starts at 1
                 NSString *valOfDayOfWeek = [[NSArray arrayWithObjects:@"Unknown", @"Sunday", @"Monday", @"Tuesday", @"Wednesday", @"Thursday", @"Friday", @"Saturday", nil] objectAtIndex:item.dayOfTheWeek];
                 [dayofweek setObject:valOfDayOfWeek forKey:@"dayOfTheWeek"];
-                
+
                 NSNumber *valOfWeekNumber = [NSNumber numberWithInteger:item.weekNumber];
                 [dayofweek setObject:valOfWeekNumber forKey:@"weekNumber"];
-                
+
                 [daysOfTheWeek addObject:dayofweek];
-                
+
             }
             [rrule setObject:daysOfTheWeek forKey:@"daysOfTheWeek"];
         }
@@ -494,7 +513,7 @@
             }
             [rrule setObject:daysOfTheYear forKey:@"daysOfTheYear"];
         }
-        
+
         if (rule.weeksOfTheYear != nil) {
             NSMutableArray * weeksOfTheYear = [[NSMutableArray alloc] init];
             for (NSNumber * item in rule.weeksOfTheYear) {
@@ -605,7 +624,7 @@
       pluginResult = [CDVPluginResult resultWithStatus: CDVCommandStatus_OK messageAsArray:eventsDataArray];
 
       [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
-  }];  
+  }];
 }
 
 - (void)createEventWithOptions:(CDVInvokedUrlCommand*)command {
@@ -690,7 +709,7 @@
     if (secondReminderMinutes != (id)[NSNull null]) {
       EKAlarm *reminder = [EKAlarm alarmWithRelativeOffset:-1*secondReminderMinutes.intValue*60];
       [myEvent addAlarm:reminder];
-    }     
+    }
 
     if (recurrence != (id)[NSNull null]) {
         NSMutableArray *daysOfTheWeekArray = [NSMutableArray array];
@@ -701,7 +720,7 @@
             EKRecurrenceDayOfWeek *weekDay = [[EKRecurrenceDayOfWeek alloc] initWithDayOfTheWeek:[self toEKWeekday:dayOfTheWeek] weekNumber:0];
             [daysOfTheWeekArray addObject:weekDay];
           }
-          
+
         }
       EKRecurrenceRule *rule = [[EKRecurrenceRule alloc] initRecurrenceWithFrequency: [self toEKRecurrenceFrequency:recurrence]
                                                                             interval: recurrenceIntervalAmount.integerValue
@@ -711,7 +730,7 @@
                                                                       weeksOfTheYear: nil
                                                                        daysOfTheYear: nil
                                                                         setPositions: nil
-                                                                                 end: nil];        
+                                                                                 end: nil];
         if (recurrenceEndTime != nil) {
         NSTimeInterval _recurrenceEndTimeInterval = [recurrenceEndTime doubleValue] / 1000; // strip millis
         NSDate *myRecurrenceEndDate = [NSDate dateWithTimeIntervalSince1970:_recurrenceEndTimeInterval];
@@ -872,6 +891,7 @@
 - (void) deleteEventById:(CDVInvokedUrlCommand*)command {
   NSDictionary* options = [command.arguments objectAtIndex:0];
   NSString* ciid = [options objectForKey:@"id"];
+  BOOL thisAndFollowingEvents = [[options objectForKey:@"thisAndFollowingEvents"] boolValue];
   NSNumber* fromTime = [options objectForKey:@"fromTime"];
 
   [self.commandDelegate runInBackground: ^{
@@ -904,7 +924,8 @@
 
       // Delete
       NSError *error = nil;
-      [eventStore removeEvent:instance span:EKSpanFutureEvents error:&error];
+      [eventStore removeEvent:instance span:thisAndFollowingEvents ? EKSpanFutureEvents
+ : EKSpanThisEvent error:&error];
       if (error != nil) {
         // Fail
         [self.commandDelegate
