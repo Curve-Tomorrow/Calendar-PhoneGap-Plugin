@@ -947,22 +947,25 @@
   NSDictionary* options = [command.arguments objectAtIndex:0];
   NSString* calendarName = [options objectForKey:@"calendarName"];
   EKCalendar* calendar = [self findEKCalendar:calendarName];
-  CDVPluginResult *pluginResult = nil;
 
-  if (calendar == nil) {
-    pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"Could not find calendar"];
-  } else {
-    NSDate *currentDate = [NSDate date];
-    NSDate *startDate = [[NSCalendar currentCalendar] dateByAddingUnit:NSCalendarUnitDay value:-14 toDate:currentDate options:0];
-    NSDate *endDate =  [[NSCalendar currentCalendar] dateByAddingUnit:NSCalendarUnitDay value:+14 toDate:currentDate options:0];
-    NSArray *calendarArray = [NSArray arrayWithObject:calendar];
-    NSPredicate *fetchCalendarEvents = [eventStore predicateForEventsWithStartDate:startDate endDate:endDate calendars:calendarArray];
-    NSArray *matchingEvents = [eventStore eventsMatchingPredicate:fetchCalendarEvents];
-    NSMutableArray * eventsDataArray = [self eventsToDataArray:matchingEvents];
 
-    pluginResult = [CDVPluginResult resultWithStatus: CDVCommandStatus_OK messageAsArray:eventsDataArray];
-  }
-  [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
+  [self.commandDelegate runInBackground: ^{
+    CDVPluginResult *pluginResult = nil;
+    if (calendar == nil) {
+      pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"Could not find calendar"];
+    } else {
+      NSDate *currentDate = [NSDate date];
+      NSDate *startDate = [[NSCalendar currentCalendar] dateByAddingUnit:NSCalendarUnitDay value:-14 toDate:currentDate options:0];
+      NSDate *endDate =  [[NSCalendar currentCalendar] dateByAddingUnit:NSCalendarUnitDay value:+14 toDate:currentDate options:0];
+      NSArray *calendarArray = [NSArray arrayWithObject:calendar];
+      NSPredicate *fetchCalendarEvents = [eventStore predicateForEventsWithStartDate:startDate endDate:endDate calendars:calendarArray];
+      NSArray *matchingEvents = [eventStore eventsMatchingPredicate:fetchCalendarEvents];
+      NSMutableArray * eventsDataArray = [self eventsToDataArray:matchingEvents];
+
+      pluginResult = [CDVPluginResult resultWithStatus: CDVCommandStatus_OK messageAsArray:eventsDataArray];
+    }
+    [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
+  }];
 }
 
 
