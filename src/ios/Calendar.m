@@ -143,14 +143,14 @@
 
   NSDictionary* calOptions = [options objectForKey:@"options"];
   NSString* calEventID = [calOptions objectForKey:@"id"];
-  // the only search param we're currently matching against is the calendarName, so ignoring any passed reminder values etc
-  NSString* calendarName = [calOptions objectForKey:@"calendarName"];
+  // the only search param we're currently matching against is the calendarId, so ignoring any passed reminder values etc
+  NSString* calendarId = [calOptions objectForKey:@"calendarId"];
 
 
   [self.commandDelegate runInBackground: ^{
       NSArray *calendars = nil;
 
-      if (calendarName == (id)[NSNull null]) {
+      if (calendarId == (id)[NSNull null]) {
           calendars = [self.eventStore calendarsForEntityType:EKEntityTypeEvent];
           if (calendars.count == 0) {
               CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"No default calendar found. Is access to the Calendar blocked for this app?"];
@@ -158,7 +158,7 @@
               return;
           }
       } else {
-          EKCalendar * calendar = [self findEKCalendar:calendarName];
+          EKCalendar * calendar = [self findEKCalendar:calendarId];
 
           if (calendar == nil) {
               CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"Could not find calendar"];
@@ -191,9 +191,9 @@
     if (theEvent != nil) {
       NSDictionary* newCalOptions = [options objectForKey:@"newOptions"];
       BOOL thisAndFollowingEvents = [[newCalOptions objectForKey:@"thisAndFollowingEvents"] boolValue];
-      NSString* newCalendarName = [newCalOptions objectForKey:@"calendarName"];
-      if (newCalendarName != (id)[NSNull null]) {
-        theEvent.calendar = [self findEKCalendar:calendarName];
+      NSString* newCalendarId = [newCalOptions objectForKey:@"calendarId"];
+      if (newCalendarId != (id)[NSNull null]) {
+        theEvent.calendar = [self findEKCalendar:newCalendarId];
         if (theEvent.calendar == nil) {
           pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"Could not find calendar passed in newOptions object"];
           [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
@@ -376,20 +376,20 @@
   return matchingEvents;
 }
 
-- (EKCalendar*) findEKCalendar: (NSString *)calendarName {
+- (EKCalendar*) findEKCalendar: (NSString *)calendarIdOrName {
   NSArray<EKCalendar *> *calendars = [self.eventStore calendarsForEntityType:EKEntityTypeEvent];
   if (calendars != nil && calendars.count > 0) {
     for (EKCalendar *thisCalendar in calendars) {
       NSLog(@"Calendar: %@", thisCalendar.title);
-      if ([thisCalendar.title isEqualToString:calendarName]) {
+      if ([thisCalendar.title isEqualToString:calendarIdOrName]) {
         return thisCalendar;
       }
-      if ([thisCalendar.calendarIdentifier isEqualToString:calendarName]) {
+      if ([thisCalendar.calendarIdentifier isEqualToString:calendarIdOrName]) {
         return thisCalendar;
       }
     }
   }
-  NSLog(@"No match found for calendar with name: %@", calendarName);
+  NSLog(@"No match found for calendar with id/name: %@", calendarIdOrName);
   return nil;
 }
 
@@ -419,7 +419,7 @@
   for (EKEvent * event in matchingEvents) {
     NSMutableDictionary *entry = [[NSMutableDictionary alloc] initWithObjectsAndKeys:
                                   event.title, @"title",
-                                  event.calendar.title, @"calendar",
+                                  event.calendar.calendarIdentifier, @"calendar",
                                   event.eventIdentifier , @"id",
                                   [df stringFromDate:event.startDate], @"startDate",
                                   [df stringFromDate:event.endDate], @"endDate",
@@ -642,6 +642,7 @@
   NSString* recurrence = [calOptions objectForKey:@"recurrence"];
   NSString* recurrenceEndTime = [calOptions objectForKey:@"recurrenceEndTime"];
   NSNumber* recurrenceIntervalAmount = [calOptions objectForKey:@"recurrenceInterval"];
+  NSString* calendarId = [calOptions objectForKey:@"calendarId"];
   NSString* calendarName = [calOptions objectForKey:@"calendarName"];
   NSString* url = [calOptions objectForKey:@"url"];
   NSArray* daysOfTheWeek = [calOptions objectForKey:@"daysOfTheWeek"];
@@ -675,7 +676,7 @@
     EKCalendar* calendar = nil;
     CDVPluginResult *pluginResult = nil;
 
-    if (calendarName == (id)[NSNull null]) {
+    if (calendarId == (id)[NSNull null]) {
       calendar = self.eventStore.defaultCalendarForNewEvents;
       if (calendar == nil) {
         pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"No default calendar found. Is access to the Calendar blocked for this app?"];
@@ -683,7 +684,7 @@
         return;
       }
     } else {
-      calendar = [self findEKCalendar:calendarName];
+      calendar = [self findEKCalendar:calendarId];
       if (calendar == nil) {
         // create it
         calendar = [EKCalendar calendarForEntityType:EKEntityTypeEvent eventStore:self.eventStore];
@@ -766,7 +767,7 @@
   NSNumber* secondReminderMinutes = [calOptions objectForKey:@"secondReminderMinutes"];
   NSString* recurrence = [calOptions objectForKey:@"recurrence"];
   NSString* recurrenceEndTime = [calOptions objectForKey:@"recurrenceEndTime"];
-  NSString* calendarName = [calOptions objectForKey:@"calendarName"];
+  NSString* calendarId = [calOptions objectForKey:@"calendarId"];
   NSString* url = [calOptions objectForKey:@"url"];
   NSNumber* intervalAmount = [calOptions objectForKey:@"recurrenceInterval"];
 
@@ -806,7 +807,7 @@
   [self.commandDelegate runInBackground: ^{
     EKCalendar* calendar = nil;
 
-    if (calendarName == (id)[NSNull null]) {
+    if (calendarId == (id)[NSNull null]) {
       calendar = self.eventStore.defaultCalendarForNewEvents;
       if (calendar == nil) {
         CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"No default calendar found. Is access to the Calendar blocked for this app?"];
@@ -814,7 +815,7 @@
         return;
       }
     } else {
-      calendar = [self findEKCalendar:calendarName];
+      calendar = [self findEKCalendar:calendarId];
       if (calendar == nil) {
         CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"Could not find calendar"];
         [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
@@ -858,22 +859,6 @@
         [self.viewController presentViewController:controller animated:YES completion:nil];
     });
   }];
-}
-
-- (void) deleteEventFromNamedCalendar:(CDVInvokedUrlCommand*)command {
-  NSDictionary* options = [command.arguments objectAtIndex:0];
-  NSString* calendarName = [options objectForKey:@"calendarName"];
-  EKCalendar* calendar = [self findEKCalendar:calendarName];
-
-  if (calendar == nil) {
-    CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"Could not find calendar"];
-    [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
-  } else {
-    [self deleteEventFromCalendar:command calendar:calendar];
-    NSString *msg = [@"Deleted from " stringByAppendingString:calendar.title];
-    CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:msg];
-    [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
-  }
 }
 
 
@@ -943,10 +928,10 @@
   }];
 }
 
-- (void) findAllEventsInNamedCalendar:(CDVInvokedUrlCommand*)command {
+- (void) findAllEventsInCalendar:(CDVInvokedUrlCommand*)command {
   NSDictionary* options = [command.arguments objectAtIndex:0];
-  NSString* calendarName = [options objectForKey:@"calendarName"];
-  EKCalendar* calendar = [self findEKCalendar:calendarName];
+  NSString* calendarId = [options objectForKey:@"calendarId"];
+  EKCalendar* calendar = [self findEKCalendar:calendarId];
 
 
   [self.commandDelegate runInBackground: ^{
@@ -977,10 +962,10 @@
   NSNumber* startTime  = [options objectForKey:@"startTime"];
   NSNumber* endTime    = [options objectForKey:@"endTime"];
 
-  // actually the only option we're currently using is calendarName
+  // actually the only option we're currently using is calendarId
   NSDictionary* calOptions = [options objectForKey:@"options"];
   NSString* calEventID = [calOptions objectForKey:@"id"];
-  NSString* calendarName = [calOptions objectForKey:@"calendarName"];
+  NSString* calendarId = [calOptions objectForKey:@"calendarId"];
 
   [self.commandDelegate runInBackground: ^{
     NSTimeInterval _startInterval = [startTime doubleValue] / 1000; // strip millis
@@ -1001,7 +986,7 @@
 
     NSArray* calendars = nil;
 
-    if (calendarName == (id)[NSNull null]) {
+    if (calendarId == (id)[NSNull null]) {
         calendars = [self.eventStore calendarsForEntityType:EKEntityTypeEvent];
       if (calendars.count == 0) {
         CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"No default calendar found. Is access to the Calendar blocked for this app?"];
@@ -1009,7 +994,7 @@
         return;
       }
     } else {
-      EKCalendar * calendar = [self findEKCalendar:calendarName];
+      EKCalendar * calendar = [self findEKCalendar:calendarId];
 
       if (calendar == nil) {
         CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"Could not find calendar"];
@@ -1089,10 +1074,10 @@
 
 - (void) deleteCalendar:(CDVInvokedUrlCommand*)command {
   NSDictionary* options = [command.arguments objectAtIndex:0];
-  NSString* calendarName = [options objectForKey:@"calendarName"];
+  NSString* calendarId = [options objectForKey:@"calendarId"];
 
   [self.commandDelegate runInBackground: ^{
-    EKCalendar *thisCalendar = [self findEKCalendar:calendarName];
+    EKCalendar *thisCalendar = [self findEKCalendar:calendarId];
     CDVPluginResult* pluginResult = nil;
 
     if (thisCalendar == nil) {

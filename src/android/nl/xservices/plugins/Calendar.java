@@ -52,7 +52,7 @@ public class Calendar extends CordovaPlugin {
   private static final String ACTION_LIST_CALENDARS = "listCalendars";
   private static final String ACTION_CREATE_CALENDAR = "createCalendar";
   private static final String ACTION_DELETE_CALENDAR = "deleteCalendar";
-  private static final String ACTION_FIND_ALL_EVENTS_IN_NAMED_CALENDAR = "findAllEventsInNamedCalendar";
+  private static final String ACTION_FIND_ALL_EVENTS_IN_CALENDAR = "findAllEventsInCalendar";
   private static final String ACTION_MODIFY_EVENT_WITH_OPTIONS = "modifyEventWithOptions";
 
   // write permissions
@@ -138,8 +138,8 @@ public class Calendar extends CordovaPlugin {
     } else if (REQUEST_READWRITE_PERMISSION.equals(action)) {
       requestReadWritePermission(0);
       return true;
-    } else if (ACTION_FIND_ALL_EVENTS_IN_NAMED_CALENDAR.equals(action)) {
-      findAllEventsInNamedCalendar(args);
+    } else if (ACTION_FIND_ALL_EVENTS_IN_CALENDAR.equals(action)) {
+      findAllEventsInCalendar(args);
       return true;
     } else if (ACTION_MODIFY_EVENT_WITH_OPTIONS.equals(action)) {
       modifyEvent(args);
@@ -662,7 +662,7 @@ public class Calendar extends CordovaPlugin {
   }
 
 
-  private void findAllEventsInNamedCalendar(JSONArray args) {
+  private void findAllEventsInCalendar(JSONArray args) {
     // note that if the dev didn't call requestReadPermission before calling this method and calendarPermissionGranted returns false,
     // the app will ask permission and this method needs to be invoked again (done for backward compat).
     if (!calendarPermissionGranted(Manifest.permission.READ_CALENDAR)) {
@@ -672,7 +672,7 @@ public class Calendar extends CordovaPlugin {
 
     try {
       final JSONObject jsonFilter = args.getJSONObject(0);
-      String calendarId = jsonFilter.optString("calendarName");
+      String calendarId = jsonFilter.optString("calendarId");
 
 
       cordova.getThreadPool().execute(new Runnable() {
